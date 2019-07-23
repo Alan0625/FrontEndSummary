@@ -353,7 +353,7 @@ pageClass: custom-code-highlight
 
    - 6. 父元素高度不知道，同过transform实现，先给父元素相对定位，在给子元素绝对定位
 
-     ```css
+    ```css
     .contentParent{
       width: 600px;
       background: blue;
@@ -501,6 +501,70 @@ pageClass: custom-code-highlight
         }
     ```
     
+    - 3. css新增的table属性，可以让我们把普通元素，变为table元素的现实效果，通过这个特性也可以实现水平垂直居中
+
+    ```css
+        .contentParent {
+          display: table-cell;
+          text-align: center;
+          vertical-align: middle;
+        }
+    
+        .content {
+            display: inline-block;
+        }
+    ```
+
+    - 4. grid, css新出的网格布局，兼容性不太好,通过grid也可以实现水平垂直居中
+
+     ```css
+        .contentParent {
+          display: grid;
+        }
+    
+        .content {
+            align-self: center;
+            justify-self: center;
+        }
+    ```
+
+### 12. 盒模型是什么？ 
+
+- 盒模型：content（元素内容） + padding（内边距） + border（边框） + margin（外边距）
+
+> 延伸： `box-sizing`
+
+- `content-box`：默认值，总宽度 = `margin` + `border` + `padding` + `width`
+- `border-box`：盒子宽度包含 `padding` 和 `border`，`总宽度 = margin + width`
+- `inherit`：从父元素继承 `box-sizing` 属性
+
+
+### 13. BFC、IFC、GFC、FFC的用途？
+
+- FC（Formatting Contexts），格式化上下文
+
+> `BFC`：块级格式化上下文，容器里面的子元素不会在布局上影响到外面的元素，反之也是如此(按照这个理念来想，只要脱离文档流，肯定就能产生 `BFC`)。产生 `BFC` 方式如下
+
+- `float` 的值不为 `none`。
+- `overflow` 的值不为 `visible`。
+- `position` 的值不为 `relative` 和 `static`。
+- `display` 的值为 `table-cell`, `table-caption`, `inline-block`中的任何一个
+
+> 用处？常见的多栏布局，结合块级别元素浮动，里面的元素则是在一个相对隔离的环境里运行
+
+> `IFC`：内联格式化上下文，`IFC` 的 `line` `box`（线框）高度由其包含行内元素中最高的实际高度计算而来（不受到竖直方向的 `padding/margin` 影响)。
+
+> `IFC`中的`line box`一般左右都贴紧整个 `IFC`，但是会因为 `float` 元素而扰乱。`float` 元素会位于 IFC 与 `line box` 之间，使得 `line box` 宽度缩短。 同个 `ifc` 下的多个 `line box` 高度会不同。 `IFC`中时不可能有块级元素的，当插入块级元素时（如 `p` 中插入 `div `）会产生两个匿名块与 `div` 分隔开，即产生两个 `IFC` ，每个 `IFC` 对外表现为块级元素，与 `div` 垂直排列。
+
+用处？
+
+- 水平居中：当一个块要在环境中水平居中时，设置其为 `inline-block` 则会在外层产生`IFC`，通过 `text-align` 则可以使其水平居中。
+- 垂直居中：创建一个 `IFC`，用其中一个元素撑开父元素的高度，然后设置其 `vertical-align`: `middle`，其他行内元素则可以在此父元素下垂直居中
+
+> - **GFC**：网格布局格式化上下文（`display: grid`）
+> - **FFC**：自适应格式化上下文（`display: flex`）
+
+
 
 
 

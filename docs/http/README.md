@@ -424,10 +424,590 @@ pageClass: custom-code-highlight
   3. 响应头部和响应实体之间用**一个CRLF空行**分隔
   4. 最后是一个可能的**消息实体**
 
+### 24. 跨域的原理，跨域的解决方式？
+
+ - 跨域是指一个域下的文档或脚本试图去请求另一个域下的资源，这里跨域是广义的。
+
+ - 广义的跨域：
+
+  ```
+  1. 资源跳转： A链接、重定向、表单提交
+  2. 资源嵌入： <link>、<script>、<img>、<frame>等dom标签,还有样式中background:url()、@font-face()等文件外链
+  3. js发起的Ajax请求、dom和js对象的跨域操作等。
+  ```
+
+  - 我们通常所说的跨域是狭义的，是由浏览器的同源策略限制引起的。
+
+  ```
+  同源: 如果两个页面的协议，端口(如果有指定)和主机都相同，则两个页面具有相同的源。
+  ```
+  ```
+  同源策略限制了从同一个源加载的文档或脚本如何与来自另外一个源的资源进行交互。这是一个用于隔离潜在恶意文件的重要安全机制。
+  ```
+
+  - 同源策略是一种浏览器的最基本的安全机制，能够规避一些XSS、CSFR等外在的攻击危险。
+
+  - 同源策略限制以下几种行为：
+
+  ```
+  1. Cookie、LocalStorage 和 IndexDB无法读取
+  2. DOM 和 JS 对象无法获得
+  3. Ajax 请求不能发送
+
+  ```
 
 
+  - 跨域解决方案
+
+    1、 通过jsonp跨域
+    2、 document.domain + iframe跨域
+    3、 location.hash + iframe
+    4、 window.name + iframe跨域
+    5、 postMessage跨域
+    6、 跨域资源共享（CORS）
+    7、 nginx代理跨域
+    8、 nodejs中间件代理跨域
+    9、 WebSocket协议跨域
+
+
+  - 跨域的应用场景：
+    简单的跨域请求jsonp方案，复杂的用CORS，窗口之间JS跨域用postMessage，开发环境下接口跨域用nginx反向代理或node中间件比较方便。
+
+
+  - 下面介绍一下每种方法的使用
+
+
+    一、通过jsonp跨域
+
+    jsonp的原理是利用 `<script>` 标签没有跨域限制的漏洞,通过 `<script>` 标签指向一个需要访问的地址并提供一个回调函数来接收数据当需要通讯时。 jsonp使用简单且兼容性不错，但是只限于 get 请求。
+
+    1).原生实现
+
+    ```js
+        let script = document.createElement('script');
+        script.type = 'text/javascript';
+
+        // 传参一个回调函数名给后端，方便后端返回时执行这个在前端定义的回调函数
+        script.src = 'http://www.example.com/login?user=admin&callback=handleCallback';
+        script.async = true;
+        document.body.appendChild(script);
+
+        // 回调执行函数
+        function handleCallback(res) {
+            alert(JSON.stringify(res));
+        }
+    ```
+
+    服务端返回如下（返回时即执行全局函数）:
+
+    ```
+    handleCallback({"status": true, "user": "admin"})
+    ```
+
+    2). vue.js
+
+    ```
+    this.$http.jsonp('http://www.domain2.com:8080/login', {
+        params: {},
+        jsonp: 'handleCallback'
+    }).then((res) => {
+        console.log(res); 
+    })
+    ```
+
+    二、document.domain + iframe跨域
+
+    此方案仅限主域相同，子域不同的跨域应用场景。
+
+    实现原理： 两个页面都通过js强制设置document.domain为基础主域，就实现了同域。
+
+    ```
+    1.）父窗口：(http://www.domain.com/a.html)
+
+    <iframe id="iframe" src="http://child.domain.com/b.html"></iframe>
+    <script>
+        document.domain = 'domain.com';
+        var user = 'admin';
+    </script>
+
+    2.）子窗口：(http://child.domain.com/b.html)
+
+    <script>
+        document.domain = 'domain.com';
+        // 获取父窗口中变量
+        alert('get js data from parent ---> ' + window.parent.user);
+    </script>
+
+    ```
+
+    三、 location.hash + iframe跨域
+
+    实现原理： a欲与b跨域相互通信，通过中间页c来实现。 三个页面，不同域之间利用iframe的location.hash传值，相同域之间直接js访问来通信。
+
+    具体实现：A域：a.html -> B域：b.html -> A域：c.html，a与b不同域只能通过hash值单向通信，b与c也不同域也只能单向通信，但c与a同域，所以c可通过parent.parent访问a页面所有对象。
+
+  
+    四、 window.name + iframe跨域
+
+    window.name属性的独特之处：name值在不同的页面（甚至不同域名）加载后依旧存在，并且可以支持非常长的 name 值（2MB）。
+
+    总结：通过iframe的src属性由外域转向本地域，跨域数据即由iframe的window.name从外域传递到本地域。这个就巧妙地绕过了浏览器的跨域访问限制，但同时它又是安全操作。
 
     
+    五、 postMessage跨域
+
+    postMessage是HTML5 XMLHttpRequest Level 2中的API，且是为数不多可以跨域操作的window属性之一，它可用于解决以下方面的问题：
+    a.） 页面和其打开的新窗口的数据传递
+    b.） 多窗口之间消息传递
+    c.） 页面与嵌套的iframe消息传递
+    d.） 上面三个场景的跨域数据传递
+
+    用法：postMessage(data,origin)方法接受两个参数
+    data： html5规范支持任意基本类型或可复制的对象，但部分浏览器只支持字符串，所以传参时最好用JSON.stringify()序列化。
+    origin： 协议+主机+端口号，也可以设置为"*"，表示可以传递给任意窗口，如果要指定和当前窗口同源的话设置为"/"。
+
+    ```
+    1.）a.html：(http://www.domain1.com/a.html)
+
+    <iframe id="iframe" src="http://www.domain2.com/b.html" style="display:none;"></iframe>
+    <script>       
+        var iframe = document.getElementById('iframe');
+        iframe.onload = function() {
+            var data = {
+                name: 'aym'
+            };
+            // 向domain2传送跨域数据
+            iframe.contentWindow.postMessage(JSON.stringify(data), 'http://www.domain2.com');
+        };
+
+        // 接受domain2返回数据
+        window.addEventListener('message', function(e) {
+            alert('data from domain2 ---> ' + e.data);
+        }, false);
+    </script>
+    2.）b.html：(http://www.domain2.com/b.html)
+
+        // 接收domain1的数据
+        window.addEventListener('message', function(e) {
+            alert('data from domain1 ---> ' + e.data);
+
+            var data = JSON.parse(e.data);
+            if (data) {
+                data.number = 16;
+
+                // 处理后再发回domain1
+                window.parent.postMessage(JSON.stringify(data), 'http://www.domain1.com');
+            }
+        }, false);
+
+    ```
+
     
+    六、 跨域资源共享（CORS）
+
+    普通跨域请求：只服务端设置Access-Control-Allow-Origin即可，前端无须设置，若要带cookie请求：前后端都需要设置。
+
+    需注意的是：由于同源策略的限制，所读取的cookie为跨域请求接口所在域的cookie，而非当前页。如果想实现当前页cookie的写入，可参考下文：七、nginx反向代理中设置proxy_cookie_domain 和 八、NodeJs中间件代理中cookieDomainRewrite参数的设置。
+
+    目前，所有浏览器都支持该功能(IE8+：IE8/9需要使用XDomainRequest对象来支持CORS）)，CORS也已经成为主流的跨域解决方案。
+
+    1、 前端设置：
+    1.）原生ajax
+
+    // 前端设置是否带cookie
+    xhr.withCredentials = true;
+    示例代码：
+
+    var xhr = new XMLHttpRequest(); // IE8/9需用window.XDomainRequest兼容
+
+    // 前端设置是否带cookie
+    xhr.withCredentials = true;
+
+    xhr.open('post', 'http://www.domain2.com:8080/login', true);
+    xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+    xhr.send('user=admin');
+
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState == 4 && xhr.status == 200) {
+            alert(xhr.responseText);
+        }
+    };
+    2.）jQuery ajax
+
+    $.ajax({
+        ...
+      xhrFields: {
+          withCredentials: true    // 前端设置是否带cookie
+      },
+      crossDomain: true,   // 会让请求头中包含跨域的额外信息，但不会含cookie
+        ...
+    });
+    3.）vue框架
+
+    a.) axios设置：
+
+    axios.defaults.withCredentials = true
+    b.) vue-resource设置：
+
+    Vue.http.options.credentials = true
 
 
+    2、 服务端设置：
+    若后端设置成功，前端浏览器控制台则不会出现跨域报错信息，反之，说明没设成功。
+
+    1.）Java后台：
+
+    ```
+    /*
+    * 导入包：import javax.servlet.http.HttpServletResponse;
+    * 接口参数中定义：HttpServletResponse response
+    */
+
+    // 允许跨域访问的域名：若有端口需写全（协议+域名+端口），若没有端口末尾不用加'/'
+    response.setHeader("Access-Control-Allow-Origin", "http://www.domain1.com"); 
+
+    // 允许前端带认证cookie：启用此项后，上面的域名不能为'*'，必须指定具体的域名，否则浏览器会提示
+    response.setHeader("Access-Control-Allow-Credentials", "true"); 
+
+    // 提示OPTIONS预检时，后端需要设置的两个常用自定义头
+    response.setHeader("Access-Control-Allow-Headers", "Content-Type,X-Requested-With");
+
+    ```
+
+    2.）Nodejs后台示例
+
+    ```
+    var http = require('http');
+    var server = http.createServer();
+    var qs = require('querystring');
+
+    server.on('request', function(req, res) {
+        var postData = '';
+
+        // 数据块接收中
+        req.addListener('data', function(chunk) {
+            postData += chunk;
+        });
+
+        // 数据接收完毕
+        req.addListener('end', function() {
+            postData = qs.parse(postData);
+
+            // 跨域后台设置
+            res.writeHead(200, {
+                'Access-Control-Allow-Credentials': 'true',     // 后端允许发送Cookie
+                'Access-Control-Allow-Origin': 'http://www.domain1.com',    // 允许访问的域（协议+域名+端口）
+                /* 
+                * 此处设置的cookie还是domain2的而非domain1，因为后端也不能跨域写cookie(nginx反向代理可以实现)，
+                * 但只要domain2中写入一次cookie认证，后面的跨域接口都能从domain2中获取cookie，从而实现所有的接口都能跨域访问
+                */
+                'Set-Cookie': 'l=a123456;Path=/;Domain=www.domain2.com;HttpOnly'  // HttpOnly的作用是让js无法读取cookie
+            });
+
+            res.write(JSON.stringify(postData));
+            res.end();
+        });
+    });
+
+    server.listen('8080');
+    console.log('Server is running at port 8080...');
+
+    ```
+   
+  七、 nginx代理跨域
+
+    1、 nginx配置解决iconfont跨域
+    浏览器跨域访问js、css、img等常规静态资源被同源策略许可，但iconfont字体文件(eot|otf|ttf|woff|svg)例外，此时可在nginx的静态资源服务器中加入以下配置。
+
+    location / {
+      add_header Access-Control-Allow-Origin *;
+    }
+
+    2、 nginx反向代理接口跨域
+    跨域原理： 同源策略是浏览器的安全策略，不是HTTP协议的一部分。服务器端调用HTTP接口只是使用HTTP协议，不会执行JS脚本，不需要同源策略，也就不存在跨越问题。
+
+    实现思路：通过nginx配置一个代理服务器（域名与domain1相同，端口不同）做跳板机，反向代理访问domain2接口，并且可以顺便修改cookie中domain信息，方便当前域cookie写入，实现跨域登录。
+
+
+   八、 Nodejs中间件代理跨域
+    node中间件实现跨域代理，原理大致与nginx相同，都是通过启一个代理服务器，实现数据的转发，也可以通过设置cookieDomainRewrite参数修改响应头中cookie中域名，实现当前域的cookie写入，方便接口登录认证。
+
+    1、 非vue框架的跨域（2次跨域）
+    利用node + express + http-proxy-middleware搭建一个proxy服务器。
+
+    2、 vue框架的跨域（1次跨域）
+    利用node + webpack + webpack-dev-server代理接口跨域。在开发环境下，由于vue渲染服务和接口代理服务都是webpack-dev-server同一个，所以页面与代理接口之间不再跨域，无须设置headers跨域信息了。
+
+    九、 WebSocket协议跨域
+    WebSocket protocol是HTML5一种新的协议。它实现了浏览器与服务器全双工通信，同时允许跨域通讯，是server push技术的一种很好的实现。
+    原生WebSocket API使用起来不太方便，我们使用Socket.io，它很好地封装了webSocket接口，提供了更简单、灵活的接口，也对不支持webSocket的浏览器提供了向下兼容。
+
+    1.）前端代码：
+
+    ```
+    <div>user input：<input type="text"></div>
+    <script src="https://cdn.bootcss.com/socket.io/2.2.0/socket.io.js"></script>
+    <script>
+    var socket = io('http://www.domain2.com:8080');
+
+    // 连接成功处理
+    socket.on('connect', function() {
+        // 监听服务端消息
+        socket.on('message', function(msg) {
+            console.log('data from server: ---> ' + msg); 
+        });
+
+        // 监听服务端关闭
+        socket.on('disconnect', function() { 
+            console.log('Server socket has closed.'); 
+        });
+    });
+
+    document.getElementsByTagName('input')[0].onblur = function() {
+        socket.send(this.value);
+    };
+    </script>
+    ```
+
+    2.）Nodejs socket后台：
+
+    ```
+    var http = require('http');
+    var socket = require('socket.io');
+
+    // 启http服务
+    var server = http.createServer(function(req, res) {
+        res.writeHead(200, {
+            'Content-type': 'text/html'
+        });
+        res.end();
+    });
+
+    server.listen('8080');
+    console.log('Server is running at port 8080...');
+
+    // 监听socket连接
+    socket.listen(server).on('connection', function(client) {
+        // 接收信息
+        client.on('message', function(msg) {
+            client.send('hello：' + msg);
+            console.log('data from client: ---> ' + msg);
+        });
+
+        // 断开处理
+        client.on('disconnect', function() {
+            console.log('Client socket has closed.'); 
+        });
+    });
+    ```
+
+
+### 25. 跨域的几种方式的优缺点？
+
+> 很多种方法，但万变不离其宗，都是为了搞定同源策略。重用的有 `jsonp`、`iframe`、`cors`、`img`、H`TML5 postMessage`等等。其中用到 `html` 标签进行跨域的原理就是 `html` 不受同源策略影响。但只是接受 `Get` 的请求方式，这个得清楚。
+
+> **延伸1：img iframe script 来发送跨域请求有什么优缺点？**
+
+**1. `iframe`**
+
+- 优点：跨域完毕之后`DOM`操作和互相之间的`JavaScript`调用都是没有问题的
+- 缺点：1.若结果要以`URL`参数传递，这就意味着在结果数据量很大的时候需要分割传递，巨烦。2.还有一个是`iframe`本身带来的，母页面和`iframe`本身的交互本身就有安全性限制。
+
+**2. script**
+
+- 优点：可以直接返回`json`格式的数据，方便处理
+- 缺点：只接受`GET`请求方式
+
+**3. 图片ping**
+
+- 优点：可以访问任何`url`，一般用来进行点击追踪，做页面分析常用的方法
+- 缺点：不能访问响应文本，只能监听是否响应
+
+> **延伸2：配合 webpack 进行反向代理？**
+
+`webpack` 在 `devServer` 选项里面提供了一个 `proxy` 的参数供开发人员进行反向代理
+
+```js
+'/api': {
+  target: 'http://www.example.com', // your target host
+  changeOrigin: true, // needed for virtual hosted sites
+  pathRewrite: {
+    '^/api': ''  // rewrite path
+  }
+},
+```
+
+> 然后再配合 `http-proxy-middleware` 插件对 `api` 请求地址进行代理
+
+```js
+const express = require('express');
+const proxy = require('http-proxy-middleware');
+// proxy api requests
+const exampleProxy = proxy(options); // 这里的 options 就是 webpack 里面的 proxy 选项对应的每个选项
+
+// mount `exampleProxy` in web server
+const app = express();
+app.use('/api', exampleProxy);
+app.listen(3000);
+```
+
+> 然后再用 `nginx` 把允许跨域的源地址添加到报头里面即可
+
+> 说到 `nginx` ，可以再谈谈 `CORS` 配置，大致如下
+
+```js
+location / {
+  if ($request_method = 'OPTIONS') {
+    add_header 'Access-Control-Allow-Origin' '*';  
+    add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS'; 
+    add_header 'Access-Control-Allow-Credentials' 'true';
+    add_header 'Access-Control-Allow-Headers' 'DNT, X-Mx-ReqToken, Keep-Alive, User-Agent, X-Requested-With, If-Modified-Since, Cache-Control, Content-Type';  
+    add_header 'Access-Control-Max-Age' 86400;  
+    add_header 'Content-Type' 'text/plain charset=UTF-8';  
+    add_header 'Content-Length' 0;  
+    return 200;  
+  }
+}
+```
+
+### 26. http 无状态无连接
+
+- `http` 协议对于事务处理没有记忆能力
+- 对同一个`url`请求没有上下文关系
+- 每次的请求都是独立的，它的执行情况和结果与前面的请求和之后的请求是无直接关系的，它不会受前面的请求应答情况直接影响，也不会直接影响后面的请求应答情况
+- 服务器中没有保存客户端的状态，客户端必须每次带上自己的状态去请求服务器
+- 请求过的资源下一次会继续进行请求
+
+### 27. http协议无状态中的 状态 到底指的是什么？
+
+- 【状态】的含义就是：客户端和服务器在某次会话中产生的数据
+- 那么对应的【无状态】就意味着：这些数据不会被保留
+- 通过增加`cookie`和`session`机制，现在的网络请求其实是有状态的
+- 在没有状态的`http`协议下，服务器也一定会保留你每次网络请求对数据的修改，但这跟保留每次访问的数据是不一样的，保留的只是会话产生的结果，而没有保留会话
+
+### 28. Http 缓存的好处？ http缓存的类型？ http本地缓存？
+
+ - 首先得明确 http 缓存的好处
+
+  - 减少了冗余的数据传输，提升性能，节约资源
+  - 减少服务器端的压力
+  - `Web` 缓存能够减少延迟与网络阻塞，进而减少显示某个资源所用的时间
+  - 加快客户端加载网页的速度，提升用户体验
+
+ - 常见 http 缓存的类型**
+
+  - 私有缓存（一般为本地浏览器缓存）
+  - 代理缓存
+
+  - 本地缓存是怎么工作的？
+
+  > 本地缓存是指浏览器请求资源时命中了浏览器本地的缓存资源，浏览器并不会发送真正的请求给服务器了。它的执行过程是
+
+  - 第一次浏览器发送请求给服务器时，此时浏览器还没有本地缓存副本，服务器返回资源给浏览器，响应码是`200 OK`，浏览器收到资源后，把资源和对应的响应头一起缓存下来
+  - 第二次浏览器准备发送请求给服务器时候，浏览器会先检查上一次服务端返回的响应头信息中的`Cache-Control`，它的值是一个相对值，单位为秒，表示资源在客户端缓存的最大有效期，过期时间为第一次请求的时间减去`Cache-Control`的值，过期时间跟当前的请求时间比较，如果本地缓存资源没过期，那么命中缓存，不再请求服务器
+  - 如果没有命中，浏览器就会把请求发送给服务器，进入缓存协商阶段。
+
+  > 与本地缓存相关的头有：`Cache-Control`、`Expires`，`Cache-Control`有多个可选值代表不同的意义，而`Expires`就是一个日期格式的绝对值。
+
+
+### 29. http缓存的使用？
+
+- 本地缓存
+
+  > 与本地缓存相关的头有：`Cache-Control`、`Expires`，`Cache-Control`有多个可选值代表不同的意义，而`Expires`就是一个日期格式的绝对值。
+
+  **Cache-Control**
+
+  > `Cache-Control`是`HTPP`缓存策略中最重要的头，它是`HTTP/1.1`中出现的，它由如下几个值
+
+  - `no-cache`：不使用本地缓存。需要使用缓存协商，先与服务器确认返回的响应是否被更改，如果之前的响应中存在`ETag`，那么请求的时候会与服务端验证，如果资源未被更改，则可以避免重新下载
+  - `no-store`：直接禁止浏览器缓存数据，每次用户请求该资源，都会向服务器发送一个请求，每次都会下载完整的资源
+  - `public`：可以被所有的用户缓存，包括终端用户和`CDN`等中间代理服务器。
+  - `private`：只能被终端用户的浏览器缓存，不允许`CDN`等中继缓存服务器对其缓存。
+  - `max-age`：从当前请求开始，允许获取的响应被重用的最长时间（秒）。
+
+  ```bash
+
+  Cache-Control: public, max-age=1000 
+  # 表示资源可以被所有用户以及代理服务器缓存，最长时间为1000秒。
+  ```
+
+  **Expires**
+
+  > `Expires`是`HTTP/1.0`出现的头信息，同样是用于决定本地缓存策略的头，它是一个绝对时间，时间格式是如`Mon, 10 Jun 2015 21:31:12 GMT`，只要发送请求时间是在`Expires`之前，那么本地缓存始终有效，否则就会去服务器发送请求获取新的资源。如果同时出现`Cache-Control：max-age`和`Expires`，那么`max-age`优先级更高。他们可以这样组合使用
+
+  ```
+  Cache-Control: public
+  Expires: Wed, Jan 10 2018 00:27:04 GMT
+  ```
+
+- 协商缓存
+
+  > 当第一次请求时服务器返回的响应头中存在以下情况时
+
+  - 没有 `Cache-Control` 和 `Expires`
+  - `Cache-Control` 和 `Expires` 过期了
+  - `Cache-Control` 的属性设置为 `no-cache` 时
+
+  > 那么浏览器第二次请求时就会与服务器进行协商，询问浏览器中的缓存资源是不是旧版本，需不需要更新，此时，服务器就会做出判断，如果缓存和服务端资源的最新版本是一致的，那么就无需再次下载该资源，服务端直接返回`304 Not Modified` 状态码，如果服务器发现浏览器中的缓存已经是旧版本了，那么服务器就会把最新资源的完整内容返回给浏览器，状态码就是`200 Ok`，那么服务端是根据什么来判断浏览器的缓存是不是最新的呢？其实是根据`HTTP`的另外两组头信息，分别是：`Last-Modified/If-Modified-Since` 与 `ETag/If-None-Match`。
+
+  **Last-Modified 与 If-Modified-Since**
+
+  - 浏览器第一次请求资源时，服务器会把资源的最新修改时间`Last-Modified:Thu, 29 Dec 2011 18:23:55 GMT`放在响应头中返回给浏览器
+  - 第二次请求时，浏览器就会把上一次服务器返回的修改时间放在请求头`If-Modified-Since:Thu, 29 Dec 2011 18:23:55`发送给服务器，服务器就会拿这个时间跟服务器上的资源的最新修改时间进行对比
+
+  > 如果两者相等或者大于服务器上的最新修改时间，那么表示浏览器的缓存是有效的，此时缓存会命中，服务器就不再返回内容给浏览器了，同时`Last-Modified`头也不会返回，因为资源没被修改，返回了也没什么意义。如果没命中缓存则最新修改的资源连同`Last-Modified`头一起返回
+
+
+  ```bash
+  # 第一次请求返回的响应头
+  Cache-Control:max-age=3600
+  Expires: Fri, Jan 12 2018 00:27:04 GMT
+  Last-Modified: Wed, Jan 10 2018 00:27:04 GMT
+  ```
+
+
+  ```bash
+  # 第二次请求的请求头信息
+  If-Modified-Since: Wed, Jan 10 2018 00:27:04 GMT
+  ```
+
+  > 这组头信息是基于资源的修改时间来判断资源有没有更新，另一种方式就是根据资源的内容来判断，就是接下来要讨论的 `ETag` 与 `If-None-Match`
+
+  **ETag与If-None-Match**
+
+  > `ETag/If-None-Match`与`Last-Modified/If-Modified-Since`的流程其实是类似的，唯一的区别是它基于资源的内容的摘要信息（比如`MD5 hash`）来判断
+
+  > 浏览器发送第二次请求时，会把第一次的响应头信息`ETag`的值放在`If-None-Match`的请求头中发送到服务器，与最新的资源的摘要信息对比，如果相等，取浏览器缓存，否则内容有更新，最新的资源连同最新的摘要信息返回。用`ETag`的好处是如果因为某种原因到时资源的修改时间没改变，那么用`ETag`就能区分资源是不是有被更新。
+
+  ```bash
+  # 第一次请求返回的响应头：
+
+  Cache-Control: public, max-age=31536000
+  ETag: "15f0fff99ed5aae4edffdd6496d7131f"
+  ```
+
+  ```bash
+  # 第二次请求的请求头信息：
+
+  If-None-Match: "15f0fff99ed5aae4edffdd6496d7131f"
+  ```
+
+### 30. cookie 和 session？
+
+- `session`： 是一个抽象概念，开发者为了实现中断和继续等操作，将 `user agent `和 `server` 之间一对一的交互，抽象为“会话”，进而衍生出“会话状态”，也就是 `session` 的概念
+- `cookie`：它是一个世纪存在的东西，`http` 协议中定义在 `header` 中的字段，可以认为是 `session` 的一种后端无状态实现
+
+> 现在我们常说的 `session`，是为了绕开 `cookie` 的各种限制，通常借助 `cookie`本身和后端存储实现的，一种更高级的会话状态实现
+
+`session` 的常见实现要借助`cookie`来发送 `sessionID`
+
+### 31. 安全问题，如 XSS 和 CSRF
+
+-  `XSS`：跨站脚本攻击，是一种网站应用程序的安全漏洞攻击，是代码注入的一种。常见方式是将恶意代码注入合法代码里隐藏起来，再诱发恶意代码，从而进行各种各样的非法活动
+
+> 防范：记住一点 “所有用户输入都是不可信的”，所以得做输入过滤和转义
+
+- `CSRF`：跨站请求伪造，也称 `XSRF`，是一种挟制用户在当前已登录的`Web`应用程序上执行非本意的操作的攻击方法。与 `XSS` 相比，`XSS`利用的是用户对指定网站的信任，`CSRF`利用的是网站对用户网页浏览器的信任。
+
+> 防范：用户操作验证（验证码），额外验证机制（`token`使用）等

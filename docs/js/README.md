@@ -9,7 +9,7 @@ pageClass: custom-code-highlight
 
 ### 1. JavaScript有几种类型的值？ 它们的内存图是怎样的？
 
-- 基本数据类型：Undefined(未定义)、Null(空)、Boolean(布尔值)、Number(数字)、String(字符串) --栈
+- 基本数据类型：Undefined(未定义)、Null(空)、Boolean(布尔值)、Number(数字)、String(字符串)、Symbol --栈
 - 引用数据类型：Object(对象)、Array(数组)、Function(函数) -- 堆
 
 - 两种类型的区别是：存储位置不同
@@ -100,4 +100,24 @@ pageClass: custom-code-highlight
 - 原型特点：
   - JavaScript对象是通过引用来传递的，当修改原型时，与之相关的对象也会继承这一改变
 
+### 6. 什么是闭包？闭包的作用？
+> 牵扯作用域，可以两者联系起来一起谈
 
+### 7. JavaScript的作用域？
+> 词法作用域，动态作用域
+
+### 8. this指向什么？
+
+> 不同情况的调用，`this`指向分别如何。顺带可以提一下 `es6` 中箭头函数没有 `this`, `arguments`, `super` 等，这些只依赖包含箭头函数最接近的函数
+
+### 9. call，apply，bind 三者用法和区别？
+
+> 参数、绑定规则（显示绑定和强绑定），运行效率（最终都会转换成一个一个的参数去运行）、运行情况（`call`，`apply` 立即执行，`bind` 是`return` 出一个 `this` “固定”的函数，这也是为什么 `bind` 是强绑定的一个原因）
+
+> 注：“固定”这个词的含义，它指的固定是指只要传进去了 `context`，则 `bind` 中 `return` 出来的函数 `this` 便一直指向 `context`，除非 `context` 是个变量
+
+### 10. 变量声明提升？
+
+> `js` 代码在运行前都会进行 `AST` 解析，函数申明默认会提到当前作用域最前面，变量申明也会进行提升。但赋值不会得到提升。关于 `AST` 解析，这里也可以说是形成词法作用域的主要原因
+
+### 11. 
